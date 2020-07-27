@@ -153,10 +153,6 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
     bl_region_type = 'WINDOW'
     bl_options = {'3D', 'SHOW_MODAL_ALL', 'PERSISTENT'}
 
-    __slots__ = (
-        'ui_state',
-        'fold_point_vertices'
-    )
     @staticmethod
     def my_target_operator(context):
         wm = context.window_manager
@@ -167,65 +163,20 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
 
     @classmethod
     def poll(cls, context):
-        # for prop in dir(ob['_RNA_UI']):
-        #     if hasattr(ob, prop):
-        #         if prop in ob:
-        #             print(prop, '=', ob[prop])
-        #         else:
-        #             print(prop)
-        # # print(dir(ob))
-        # # print(ob.data.bl_idname)
-
-        # print('\n\n\nBL_RNA', ob.bl_rna)
-        # print('BL_RNA object', ob.bl_rna.name)
-        # print('BL_RNA type', ob.bl_rna.rna_type)
-        # if 'random property' in ob:
-        #     print(ob['random property'])
-        # print('rna', ob['_RNA_UI'].keys())
-        # # print('\n\n\nBL_RNA', ob.bl_rna)
-        # print('select', context.selected_objects)
         if context.mode == 'EDIT_MESH':
-            # mode = bpy.context.active_object.mode
-            # # we need to switch from Edit mode to Object mode so the selection gets updated
-            # bpy.ops.object.mode_set(mode='OBJECT')
-            # selectedVerts = [v for v in bpy.context.active_object.data.vertices if v.select]
-            # for v in selectedVerts:
-            #     print(v.co)
-            # # back to whatever mode we were in
-            # bpy.ops.object.mode_set(mode=mode)
             ob = context.object
-            bm = bmesh.from_edit_mesh(ob.data)
-            if 'VERT' in bm.select_mode:
-
-                # count = len(ob.data.vertices)
-                # sel = np.zeros(count, dtype=np.bool)
-                # print('sel', sel)
-                # print('v', ob.data.vertices[0].select)
-                # ob.data.vertices.foreach_get('select', sel)
-                # print(sel)
-                return (ob and 'origami_model' in ob and ob['origami_model'])
+            return 'VERT' in bmesh.from_edit_mesh(ob.data).select_mode \
+                and (ob and 'origami_model' in ob and ob['origami_model'])
         return False
-    def setup(self, context):
-        # Assign the 'offset' target property to the light energy.
-        # print(ob)
-        ob = context.object
+
+    def create_gizmo(self, location):
         mpr = self.gizmos.new(FoldOrigamiModel.bl_idname)
-
+        local_location = location
         def move_get_cb():
-            # op = FoldOrigamiModelGizmoGroup.my_target_operator(context)
-            # print('vertex', ob.data.vertices[1].co)
-
-            bm = bmesh.from_edit_mesh(ob.data)
-            selected = [v.select for v in bm.verts]
-            if np.sum(selected) == 1:
-                return np.array(ob.data.vertices)[selected][0].co
-            return ob.data.vertices[0].co
+            return local_location
 
         def move_set_cb(value):
-            op = FoldOrigamiModelGizmoGroup.my_target_operator(context)
-            op.plane_co = value
-            # XXX, this may change!
-            op.execute(context)
+            pass
 
         mpr.target_set_handler("offset", get=move_get_cb, set=move_set_cb)
 
@@ -235,22 +186,68 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         mpr.color_highlight = 1, 0.8, 0.8
         mpr.alpha_highlight = 1
 
-        # units are large, so shrink to something more reasonable.
-        mpr.scale_basis = 1
         mpr.use_draw_modal = True
-        mpr.line_width = 500.0
-        self.energy_widget = mpr
+        if not hasattr(self, 'gizmo_list'):
+            self.gizmo_list = []
+        self.gizmo_list.append(mpr)
+        return mpr
 
+    def setup(self, context):
+        ob = context.object
+        bm = bmesh.from_edit_mesh(ob.data)
+        selected = [v.select for v in bm.verts]
+        if np.sum(selected) == 1:
+            location = np.array(ob.data.vertices)[selected][0].co
+            print('creating gizmo at ', location)
+            self.create_gizmo(location)
+
+    def calculate_fold_points(self, ob, selected):
+        fold_points = []
+        bm = bmesh.from_edit_mesh(ob.data)
+        selected = [v for v in bm.verts if v.select][0]
+
+        neighbouring_vertex_edge = []
+        for edge in bm.edges:
+            other = edge.other_vert(selected)
+            if not other == None:
+                fold_points.append(other.co)
+                neighbouring_vertex_edge.append((edge, other))
+
+        edge_to_neighbour_edge = {}
+        #TODO: add some way of adding together continuous edges into one edge so that you can fold across vertices in the way which break up straight edges.
+        for edge in bm.edges:
+            for e, vert in neighbouring_vertex_edge:
+                if not edge.other_vert(vert) == None and not edge == e:
+                    if (e, vert) not in edge_to_neighbour_edge:
+                        edge_to_neighbour_edge[(e, vert)] = []
+                    edge_to_neighbour_edge[(e, vert)].append(edge)
+        for inner_edge, vertex in edge_to_neighbour_edge:
+            inner_edge_length = (inner_edge.verts[0].co - inner_edge.verts[1].co).length
+            for outer_edge in edge_to_neighbour_edge[(inner_edge, vertex)]:
+                other_vertex = outer_edge.other_vert(vertex)
+                u = (other_vertex.co - vertex.co)
+                u.normalize()
+                new_point = vertex.co + u*inner_edge_length
+                fold_points.append(new_point)
+        # print('edge_to_neighbour_edge', edge_to_neighbour_edge)
+
+        return fold_points
     def refresh(self, context):
         ob = context.object
         bm = bmesh.from_edit_mesh(ob.data)
-        selected = [v.select for v in bm.verts]        
-        print('verts', selected)
-        if hasattr(self, 'energy_widget'):
-            ob = context.object
-            mpr = self.energy_widget
-            mpr.matrix_basis = ob.matrix_world.normalized()
-
+        selected = [v.select for v in bm.verts]
+        if np.sum(selected) == 1:
+            fold_points = self.calculate_fold_points(ob, selected)
+        
+            location = np.array(ob.data.vertices)[selected][0].co
+            print('creating gizmo at ', location)
+            if hasattr(self, 'gizmo_list'):
+                if len(self.gizmo_list) > 0:
+                    for gizmo in self.gizmo_list:
+                        gizmo.hide = True
+            for fold_point in fold_points:
+                #TODO: don't just keep creating new gizmos, find a way to re-use old gizmos.
+                self.create_gizmo(fold_point)
 
 
 class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
@@ -293,8 +290,5 @@ class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
             bm.to_mesh(mesh)
             mesh.update()
             res = object_utils.object_data_add(context, mesh, operator=self)
-            print('res', res)
             res['origami_model'] = True
-            print(res)
-            # res['_RNA_UI']['origami_model'] = True
         return {'FINISHED'}
