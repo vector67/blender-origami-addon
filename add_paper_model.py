@@ -47,7 +47,7 @@ def get_xyz(vertex_ind, k, angle_start, angle_end, major_radius, minor_radius):
 
 num_circle_divisions = 8
 num_segment_divisions = 2
-num_torus_divisions = 15
+num_torus_divisions = 5
 
 major_radius = 0.3
 minor_radius = 0.03
@@ -73,9 +73,13 @@ for i in range(num_circle_divisions):
             custom_shape_verts.append(get_xyz(0, k, angle_end, angle_start, major_radius, minor_radius))
             custom_shape_verts.append(get_xyz(-1, k, angle_end, angle_start, major_radius, minor_radius))
             custom_shape_verts.append(get_xyz(-2, k, angle_end, angle_start, major_radius, minor_radius))
-            
 
-class FoldOrigamiModel(Gizmo):
+crease_shape_verts = [
+    (0,0,0), (0,1,0), (0.1,1,0), 
+    (0.1,1,0), (0.1,0,0), (0,0,0)
+]
+
+class OrigamiFoldPointGizmo(Gizmo):
     bl_idname = "VIEW3D_GT_fold_origami_model"
     bl_target_properties = (
         {"id": "offset", "type": 'FLOAT', "array_length": 3},
@@ -89,43 +93,81 @@ class FoldOrigamiModel(Gizmo):
 
     __slots__ = (
         "custom_shape",
-        "init_mouse_y",
-        "init_value",
-        "rotation"
+        "type",
+        "data"
     )
 
-    def _update_offset_matrix(self):
-        pass
-        # offset behind the light
-        # self.matrix_offset.col[3][2] = self.target_get_value("offset") / -10.0
-
     def get_matrix_transform(self):
-        # self.rotation += 1
-        # self.rotation = self.rotation % 360
-        return mathutils.Matrix.Translation(self.target_get_value('offset')) @ self.matrix_world @ mathutils.Matrix.Rotation(math.radians(self.rotation), 4, 'Z')
+        return mathutils.Matrix.Translation(self.target_get_value('offset')) @ self.matrix_world
 
     def draw(self, context):
-        self._update_offset_matrix()
+        # self.draw_select(self, context, None)
         self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform())
 
     def draw_select(self, context, select_id):
-        self._update_offset_matrix()
-        # print(self.bl_target_properties)
         self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform(), select_id=select_id)
 
     def select_refresh(self):
         print('hey called')
 
     def setup(self):
-        if not hasattr(self, "rotation"):
-            self.rotation = 0
         if not hasattr(self, "custom_shape"):
             self.custom_shape = self.new_custom_shape('TRIS', custom_shape_verts)
+
+    def invoke(self, context, event):
+        print('clicked')
+        self.group.gizmo_clicked(context, self)
+        return {'RUNNING_MODAL'}
+
+    def exit(self, context, cancel):
+        context.area.header_text_set(None)
+        print('exited')
+        if cancel:
+            self.target_set_value("offset", self.init_value)
+
+    def modal(self, context, event, tweak):
+        # delta = (event.mouse_y - self.init_mouse_y) / 10.0
+        # if 'SNAP' in tweak:
+        #     delta = round(delta)
+        # if 'PRECISE' in tweak:
+        #     delta /= 10.0
+        # value = self.init_value - delta
+        # self.target_set_value("offset", value)
+        # context.area.header_text_set("My Gizmo: %.4f" % value)
+        return {'RUNNING_MODAL'}
+
+class CreaseLineGizmo(Gizmo):
+    bl_idname = "VIEW3D_GT_crease_line_gizmo"
+    bl_target_properties = (
+        {"id": "start_pos", "type": 'FLOAT', "array_length": 3},
+        {"id": "end_pos", "type": 'FLOAT', "array_length": 3},
+    )
+
+    __slots__ = (
+        "custom_shape",
+    )
+
+    def get_matrix_transform(self):
+        return mathutils.Matrix.Translation(self.target_get_value('start_pos')) @ self.matrix_world @ mathutils.Matrix.Rotation(math.radians(self.rotation), 4, 'Z')
+
+    def draw(self, context):
+        self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform())
+
+    def draw_select(self, context, select_id):
+        self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform(), select_id=select_id)
+
+    def select_refresh(self):
+        print('hey called')
+
+    def setup(self):
+        if not hasattr(self, "custom_shape"):
+            self.custom_shape = self.new_custom_shape('TRIS', crease_shape_verts)
 
     def invoke(self, context, event):
         self.init_mouse_y = event.mouse_y
         self.init_value = self.target_get_value("offset")
         print('clicked')
+        self.group.gizmo_clicked(context, self)
         return {'RUNNING_MODAL'}
 
     def exit(self, context, cancel):
@@ -157,7 +199,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
     def my_target_operator(context):
         wm = context.window_manager
         op = wm.operators[-1] if wm.operators else None
-        if isinstance(op, FoldOrigamiModel):
+        if isinstance(op, OrigamiFoldPointGizmo):
             return op
         return None
 
@@ -169,8 +211,8 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                 and (ob and 'origami_model' in ob and ob['origami_model'])
         return False
 
-    def create_gizmo(self, location):
-        mpr = self.gizmos.new(FoldOrigamiModel.bl_idname)
+    def create_fold_point_gizmo(self, location):
+        mpr = self.gizmos.new(OrigamiFoldPointGizmo.bl_idname)
         local_location = location
         def move_get_cb():
             return local_location
@@ -189,8 +231,20 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         mpr.use_draw_modal = True
         if not hasattr(self, 'gizmo_list'):
             self.gizmo_list = []
+        mpr.type = "fold_point"
+        mpr.data = location
         self.gizmo_list.append(mpr)
         return mpr
+
+    def create_crease_gizmo(self, bm, start_location, end_vertex):
+        start_vertex = None
+        # for vert in bm.verts:
+        #     if start_location == vert.co:
+        #         start_vertex = vert
+        #         break
+        # if start_vertex == None:
+        #     raise "terrible error message"
+        # mpr = self.gizmos.new(CreaseLineGizmo.bl_idname)
 
     def setup(self, context):
         ob = context.object
@@ -199,7 +253,8 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         if np.sum(selected) == 1:
             location = np.array(ob.data.vertices)[selected][0].co
             print('creating gizmo at ', location)
-            self.create_gizmo(location)
+            self.create_fold_point_gizmo(location)
+        self.ui_state = "NONE"
 
     def calculate_fold_points(self, ob, selected):
         fold_points = []
@@ -210,7 +265,13 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         for edge in bm.edges:
             other = edge.other_vert(selected)
             if not other == None:
-                fold_points.append(other.co)
+                fold_points.append({
+                    'type': 'fold_point_half_fold', 
+                    'data': {
+                        'location': other.co,
+                        'fold_from_vertex': selected.co,
+                    }
+                })
                 neighbouring_vertex_edge.append((edge, other))
 
         edge_to_neighbour_edge = {}
@@ -228,27 +289,78 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                 u = (other_vertex.co - vertex.co)
                 u.normalize()
                 new_point = vertex.co + u*inner_edge_length
-                fold_points.append(new_point)
+                fold_points.append({
+                    'type': 'fold_point_edge_edge', 
+                    'data': {
+                        'location': new_point,
+                        'fold_from_vertex': selected.co,
+                    }
+                })
         # print('edge_to_neighbour_edge', edge_to_neighbour_edge)
 
         return fold_points
     def refresh(self, context):
         ob = context.object
         bm = bmesh.from_edit_mesh(ob.data)
-        selected = [v.select for v in bm.verts]
-        if np.sum(selected) == 1:
-            fold_points = self.calculate_fold_points(ob, selected)
-        
-            location = np.array(ob.data.vertices)[selected][0].co
-            print('creating gizmo at ', location)
-            if hasattr(self, 'gizmo_list'):
-                if len(self.gizmo_list) > 0:
-                    for gizmo in self.gizmo_list:
-                        gizmo.hide = True
-            for fold_point in fold_points:
-                #TODO: don't just keep creating new gizmos, find a way to re-use old gizmos.
-                self.create_gizmo(fold_point)
+        selected = [v for v in bm.verts if v.select]
+        if len(selected) == 1:
+            self.single_vertex_selected(ob, selected[0])
+        elif self.ui_state == "SHOW_FOLD_POINTS":
+            self.ui_state = "NONE"
+            for gizmo in self.gizmo_list:
+                gizmo.hide = True
 
+    def single_vertex_selected(self, ob, selected):
+        self.ui_state = "SHOW_FOLD_POINTS"
+        fold_points = self.calculate_fold_points(ob, selected)
+    
+        location = selected.co
+        print('creating gizmo at ', location)
+        if hasattr(self, 'gizmo_list'):
+            if len(self.gizmo_list) > 0:
+                for gizmo in self.gizmo_list:
+                    gizmo.hide = True
+        for fold_point in fold_points:
+            #TODO: don't just keep creating new gizmos, find a way to re-use old gizmos.
+            mpr = self.create_fold_point_gizmo(fold_point['data']['location'])
+            mpr.type = fold_point['type']
+            mpr.data = fold_point['data']
+
+
+    def gizmo_clicked(self, context, gizmo):
+        print('gizmo_clicked, ', self.ui_state)
+        ob = context.object
+        bm = bmesh.from_edit_mesh(ob.data)
+        selected = [v.select for v in bm.verts]
+        gizmo_location = gizmo.target_get_value('offset')
+        if self.ui_state == "SHOW_FOLD_POINTS":
+            for other_gizmo in self.gizmo_list:
+                if not other_gizmo == gizmo:
+                    other_gizmo.hide = True
+
+            cancel_gizmo = self.create_fold_point_gizmo(np.array(ob.data.vertices)[selected][0].co)
+            cancel_gizmo.type = 'cancel'
+            cancel_gizmo.data = {'vertex': np.array(ob.data.vertices)[selected][0]}
+            print('assigning', cancel_gizmo.data)
+            # self.target_get_value('offset')
+            # crease = selfget_crease(gizmo.type, gizmo.data)
+            print('creating potential crease from:', gizmo.type, gizmo.data)
+            self.create_crease_gizmo(bm, mathutils.Vector(gizmo_location), np.array(ob.data.vertices)[selected][0])
+            self.ui_state = "SHOW_POTENTIAL_CREASE"
+        elif self.ui_state == "SHOW_POTENTIAL_CREASE":
+            print('clicked in show_potential_crease state')
+            if gizmo.type == "cancel":
+                self.single_vertex_selected(ob, gizmo.data['vertex'])
+                print('canceled potential crease state')
+            else:
+                #TODO: do fold based on the crease created
+                print('gizmo data', gizmo.data)
+                print('gizmo type', gizmo.type)
+                # print('do fold from', mathutils.Vector(gizmo.data), 'to', mathutils.Vector(gizmo.target_get_value("offset")))
+    def get_crease(self, start_point_type, data):
+        fold_from_vertex_location = data['fold_from_vertex']
+        fold_to_vertex_location = data['location']
+        
 
 class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
     """Object Cursor Array"""

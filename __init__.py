@@ -28,8 +28,9 @@ def new_origami_page(self, context):
  
 classes = [
     add_paper_model.AddOrigamiModel,
-    add_paper_model.FoldOrigamiModel,
-    add_paper_model.FoldOrigamiModelGizmoGroup
+    add_paper_model.OrigamiFoldPointGizmo,
+    add_paper_model.FoldOrigamiModelGizmoGroup,
+    add_paper_model.CreaseLineGizmo
 ]
 def register():
     print('loading origami plugin')
