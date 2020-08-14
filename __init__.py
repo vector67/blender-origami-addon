@@ -2,7 +2,7 @@ bl_info = {
     "name": "Origami folding tools",
     "author": "Jeffrey Russell",
     "version": (0, 0, 1),
-    "blender": (2, 82, 0),
+    "blender": (2, 83, 0),
     "location": "View3D > Add",
     "description": "Test test thing",
     "category": "Object",
@@ -10,34 +10,29 @@ bl_info = {
 
 if "bpy" in locals():
     import importlib
-    importlib.reload(add_paper_model)
+    importlib.reload(operators)
+    importlib.reload(gizmos)
+    importlib.reload(gizmo_group)
 else:
-    from . import add_paper_model
+    from . import operators
+    from . import gizmos
+    from . import gizmo_group
 
 import bpy
 
 
-def new_origami_page(self, context):
-
-    layout = self.layout
-    layout.operator_context = 'INVOKE_REGION_WIN'
-
-    layout.separator()
-    layout.operator("mesh.origami_model",
-                    text="Origami", icon="SPHERE")
- 
 classes = [
-    add_paper_model.AddOrigamiModel,
-    add_paper_model.OrigamiFoldPointGizmo,
-    add_paper_model.FoldOrigamiModelGizmoGroup,
-    add_paper_model.CreaseLineGizmo
+    operators.AddOrigamiModel,
+    gizmos.OrigamiFoldPointGizmo,
+    gizmos.CreaseLineGizmo,
+    gizmo_group.FoldOrigamiModelGizmoGroup
 ]
 def register():
     print('loading origami plugin')
     from bpy.utils import register_class
     for cls in classes:
         register_class(cls)
-    bpy.types.VIEW3D_MT_add.append(new_origami_page)
+    bpy.types.VIEW3D_MT_add.append(operators.new_origami_page)
     print('successfully loaded origami plugin')
  
 def unregister():
