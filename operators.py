@@ -1,9 +1,11 @@
+import bmesh
 import bpy
 from bpy.types import (
    Operator)
 from bpy_extras import object_utils
 from bpy.props import (
    StringProperty)
+
 
 def new_origami_page(self, context):
 
@@ -13,7 +15,7 @@ def new_origami_page(self, context):
     layout.separator()
     layout.operator("mesh.origami_model",
                     text="Origami", icon="SPHERE")
- 
+
 
 class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
     """Object Cursor Array"""
@@ -22,9 +24,9 @@ class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
     bl_label = "Add Origami Model"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
-    paper_size : StringProperty(name = "Paper size",
-                                default = "a4",
-                                description = "Paper size name")
+    paper_size: StringProperty(name="Paper size",
+                               default="a4",
+                               description="Paper size name")
 
     def draw(self, context):
         layout = self.layout
@@ -50,7 +52,6 @@ class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
                     bm.faces.new([bvs[n - 1], bvs[(n * 2) - 1], bvs[n], bvs[0]])
 
             bm.faces.new(bm.verts)
-            # bm.faces.new(reversed(bm.verts[-self.num_sides:]))  # otherwise normal faces intern... T44619.
 
             bm.to_mesh(mesh)
             mesh.update()

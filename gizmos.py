@@ -9,10 +9,15 @@ from bpy.props import (
 )
 import mathutils
 
+
 def get_x(angle, radius):
     return math.sin(angle) * radius
+
+
 def get_y(angle, radius):
     return math.cos(angle) * radius
+
+
 def get_xyz_from_theta_rho_radii(theta, rho, small_radius, big_radius):
     y1 = math.cos(rho) * small_radius
     z = math.sin(rho) * small_radius
@@ -23,12 +28,13 @@ def get_xyz_from_theta_rho_radii(theta, rho, small_radius, big_radius):
     y = math.cos(theta) * new_radius
 
     return (x, y, z)
+
+
 def get_xyz(vertex_ind, k, angle_start, angle_end, major_radius, minor_radius):
-    torus_start_slice_center = (get_x(angle_start, major_radius), get_y(angle_start, major_radius), 0)
     if vertex_ind == 0:
         rho = 2*k / num_torus_divisions * math.pi
         return get_xyz_from_theta_rho_radii(angle_start, rho, minor_radius, major_radius)
-    
+
     if vertex_ind > 0:
         rho = 2*(k + 1) / num_torus_divisions * math.pi
     else:
@@ -36,8 +42,9 @@ def get_xyz(vertex_ind, k, angle_start, angle_end, major_radius, minor_radius):
 
     if vertex_ind == 1 or vertex_ind == -1:
         return get_xyz_from_theta_rho_radii(angle_start, rho, minor_radius, major_radius)
-    
+
     return get_xyz_from_theta_rho_radii(angle_end, rho, minor_radius, major_radius)
+
 
 num_circle_divisions = 8
 num_segment_divisions = 2
@@ -69,16 +76,16 @@ for i in range(num_circle_divisions):
             fold_point_icon_verts.append(get_xyz(-2, k, angle_end, angle_start, major_radius, minor_radius))
 
 crease_shape_verts = [
-    (0,0,0), (0,1,0), (0.1,1,0), 
-    (0.1,1,0), (0.1,0,0), (0,0,0)
+    (0, 0, 0), (0, 1, 0), (0.1, 1, 0),
+    (0.1, 1, 0), (0.1, 0, 0), (0, 0, 0)
 ]
+
 
 class OrigamiFoldPointGizmo(Gizmo):
     bl_idname = "VIEW3D_GT_fold_origami_model"
     bl_target_properties = (
         {"id": "offset", "type": 'FLOAT', "array_length": 3},
     )
-
 
     plane_co: FloatVectorProperty(
         size=3,
@@ -95,10 +102,10 @@ class OrigamiFoldPointGizmo(Gizmo):
         return mathutils.Matrix.Translation(self.target_get_value('offset')) @ self.matrix_world
 
     def draw(self, context):
-        self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform())
+        self.draw_custom_shape(self.custom_shape, matrix=self.get_matrix_transform())
 
     def draw_select(self, context, select_id):
-        self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform(), select_id=select_id)
+        self.draw_custom_shape(self.custom_shape, matrix=self.get_matrix_transform(), select_id=select_id)
 
     def select_refresh(self):
         pass
@@ -142,13 +149,15 @@ class CreaseLineGizmo(Gizmo):
     )
 
     def get_matrix_transform(self):
-        return mathutils.Matrix.Translation(self.target_get_value('start_pos')) @ self.matrix_world @ mathutils.Matrix.Rotation(math.radians(self.rotation), 4, 'Z')
+        return mathutils.Matrix.Translation(self.target_get_value('start_pos')) \
+            @ self.matrix_world \
+            @ mathutils.Matrix.Rotation(math.radians(self.rotation), 4, 'Z')
 
     def draw(self, context):
-        self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform())
+        self.draw_custom_shape(self.custom_shape, matrix=self.get_matrix_transform())
 
     def draw_select(self, context, select_id):
-        self.draw_custom_shape(self.custom_shape, matrix = self.get_matrix_transform(), select_id=select_id)
+        self.draw_custom_shape(self.custom_shape, matrix=self.get_matrix_transform(), select_id=select_id)
 
     def select_refresh(self):
         print('hey called')
@@ -180,4 +189,3 @@ class CreaseLineGizmo(Gizmo):
         # self.target_set_value("offset", value)
         # context.area.header_text_set("My Gizmo: %.4f" % value)
         return {'RUNNING_MODAL'}
-
