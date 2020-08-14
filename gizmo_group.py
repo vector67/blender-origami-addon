@@ -7,7 +7,12 @@ import numpy as np
 import mathutils
 
 fold_point_gizmo_color = (0.9, 0.5, 0.5)
-fold_point_gizmo_highlight_color = (0.9, 0.5, 0.5)
+fold_point_gizmo_color_highlight = (1, 0.8, 0.8)
+
+fold_point_create_fold_color = (0, 1, 0)
+fold_point_create_fold_color_highlight = (0.5, 1, 0.5)
+fold_point_cancel_fold_color = (0.8, 0, 0)
+fold_point_cancel_fold_color_highlight = (1, 0.2, 0.2)
 
 fold_point_gizmo_alpha = 1
 
@@ -80,7 +85,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                 and (ob and 'origami_model' in ob and ob['origami_model'])
         return False
 
-    def create_or_reuse_fold_point_gizmo(self, location):
+    def create_or_reuse_fold_point_gizmo(self, location, color, highlight_color):
         # TODO Insert reuse functionality
 
         mpr = self.gizmos.new(gizmos.OrigamiFoldPointGizmo.bl_idname)
@@ -94,10 +99,10 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
 
         mpr.target_set_handler("offset", get=move_get_cb, set=move_set_cb)
 
-        mpr.color = fold_point_gizmo_color
+        mpr.color = color
         mpr.alpha = fold_point_gizmo_alpha
 
-        mpr.color_highlight = fold_point_gizmo_highlight_color
+        mpr.color_highlight = highlight_color
         mpr.alpha_highlight = fold_point_gizmo_alpha
 
         mpr.use_draw_modal = True
@@ -120,13 +125,6 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         # mpr = self.gizmos.new(CreaseLineGizmo.bl_idname)
 
     def setup(self, context):
-        ob = context.object
-        bm = bmesh.from_edit_mesh(ob.data)
-        selected = [v.select for v in bm.verts]
-        if np.sum(selected) == 1:
-            location = np.array(ob.data.vertices)[selected][0].co
-            print('creating gizmo at ', location)
-            self.create_or_reuse_fold_point_gizmo(location)
         self.ui_state = "NONE"
 
     def refresh(self, context):
@@ -137,8 +135,11 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
             self.single_vertex_selected(ob, selected[0])
         elif self.ui_state == "SHOW_FOLD_POINTS":
             self.ui_state = "NONE"
-            for gizmo in self.gizmo_list:
-                gizmo.hide = True
+            self.hide_all_gizmos()
+
+    def hide_all_gizmos(self):
+        for gizmo in self.gizmo_list:
+            gizmo.hide = True
 
     def single_vertex_selected(self, ob, selected):
         self.ui_state = "SHOW_FOLD_POINTS"
@@ -146,12 +147,14 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
 
         location = selected.co
         print('creating gizmo at ', location)
-        if hasattr(self, 'gizmo_list'):
-            if len(self.gizmo_list) > 0:
-                for gizmo in self.gizmo_list:
-                    gizmo.hide = True
+        if hasattr(self, 'gizmo_list') and len(self.gizmo_list) > 0:
+            self.hide_all_gizmos()
+
         for fold_point in fold_points:
-            mpr = self.create_or_reuse_fold_point_gizmo(fold_point['data']['location'])
+            mpr = self.create_or_reuse_fold_point_gizmo(
+                                                        fold_point['data']['location'],
+                                                        fold_point_gizmo_color,
+                                                        fold_point_gizmo_color_highlight)
             mpr.type = fold_point['type']
             mpr.data = fold_point['data']
 
@@ -165,8 +168,14 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
             for other_gizmo in self.gizmo_list:
                 if not other_gizmo == gizmo:
                     other_gizmo.hide = True
+                else:
+                    other_gizmo.color = fold_point_create_fold_color
+                    other_gizmo.color_highlight = fold_point_create_fold_color_highlight
 
-            cancel_gizmo = self.create_or_reuse_fold_point_gizmo(np.array(ob.data.vertices)[selected][0].co)
+            cancel_gizmo = self.create_or_reuse_fold_point_gizmo(
+                                                                 np.array(ob.data.vertices)[selected][0].co,
+                                                                 fold_point_cancel_fold_color,
+                                                                 fold_point_cancel_fold_color_highlight)
             cancel_gizmo.type = 'cancel'
             cancel_gizmo.data = {'vertex': np.array(ob.data.vertices)[selected][0]}
             print('assigning', cancel_gizmo.data)

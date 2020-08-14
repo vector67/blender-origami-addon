@@ -52,8 +52,6 @@ num_torus_divisions = 5
 
 major_radius = 0.3
 minor_radius = 0.03
-# major_radius = 3
-# minor_radius = 0.3
 
 fold_point_icon_verts = []
 
@@ -126,14 +124,6 @@ class OrigamiFoldPointGizmo(Gizmo):
             self.target_set_value("offset", self.init_value)
 
     def modal(self, context, event, tweak):
-        # delta = (event.mouse_y - self.init_mouse_y) / 10.0
-        # if 'SNAP' in tweak:
-        #     delta = round(delta)
-        # if 'PRECISE' in tweak:
-        #     delta /= 10.0
-        # value = self.init_value - delta
-        # self.target_set_value("offset", value)
-        # context.area.header_text_set("My Gizmo: %.4f" % value)
         return {'RUNNING_MODAL'}
 
 

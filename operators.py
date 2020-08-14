@@ -8,13 +8,12 @@ from bpy.props import (
 
 
 def new_origami_page(self, context):
-
     layout = self.layout
     layout.operator_context = 'INVOKE_REGION_WIN'
 
     layout.separator()
     layout.operator("mesh.origami_model",
-                    text="Origami", icon="SPHERE")
+                    text="Origami", icon="SPHERE")  # TODO fix icon to something that makes more sense with origami
 
 
 class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
@@ -36,7 +35,7 @@ class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
 
     def execute(self, context):
         if bpy.context.mode == "OBJECT":
-
+            # TODO this function needs to actually react to the settings and create a physically accurate model
             all_verts = [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)]
 
             mesh = bpy.data.meshes.new("Origami")
