@@ -116,8 +116,45 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         self.gizmo_list.append(mpr)
         return mpr
 
-    def create_crease_gizmo(self, bm, start_location, end_vertex):
-        pass
+    def create_crease_gizmo(self, bm, start_location, end_location):
+        # TODO Insert reuse functionality
+
+        mpr = self.gizmos.new(gizmos.CreaseLineGizmo.bl_idname)
+        local_start_location = start_location
+        local_end_location = end_location
+
+        def move_get_cb_start():
+            return local_start_location
+
+        def move_set_cb_start(value):
+            pass
+
+        def move_get_cb_end():
+            return local_end_location
+
+        def move_set_cb_end(value):
+            pass
+
+        mpr.target_set_handler("start_pos", get=move_get_cb_start, set=move_set_cb_start)
+        mpr.target_set_handler("end_pos", get=move_get_cb_end, set=move_set_cb_end)
+
+        mpr.color = fold_point_gizmo_color
+        mpr.alpha = fold_point_gizmo_alpha
+
+        mpr.color_highlight = fold_point_gizmo_color_highlight
+        mpr.alpha_highlight = fold_point_gizmo_alpha
+        
+        # mpr.use_select_background = True
+        # mpr.use_draw_scale = True
+        # use_draw_offset_scale = True
+        # mpr.use_select_background = True
+        mpr.use_event_handle_all = False
+        if not hasattr(self, 'gizmo_list'):
+            self.gizmo_list = []
+        mpr.type = "crease"
+        mpr.data = [start_location, end_location]
+        self.gizmo_list.append(mpr)
+        return mpr
         # start_vertex = None
         # for vert in bm.verts:
         #     if start_location == vert.co:
@@ -139,6 +176,11 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         elif self.ui_state == "SHOW_FOLD_POINTS":
             self.ui_state = "NONE"
             self.hide_all_gizmos()
+        target = context.active_object
+
+        mat_target = target.matrix_world.normalized()
+        for mpr in self.gizmo_list:
+            mpr.update(mat_target)
 
     def hide_all_gizmos(self):
         for gizmo in self.gizmo_list:
@@ -190,8 +232,8 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
             # self.target_get_value('offset')
             crease = self.get_crease(context, gizmo.type, gizmo.data)
             print(crease)
-            print('creating potential crease from:', gizmo.type, gizmo.data)
-            # self.create_crease_gizmo(bm, crease[0], crease[1])
+            print('creating potential crease from:', crease[0], 'to', crease[1])
+            self.create_crease_gizmo(bm, crease[0], crease[1])
             self.ui_state = "SHOW_POTENTIAL_CREASE"
             # self.lock_state = 1
         elif self.ui_state == "SHOW_POTENTIAL_CREASE":
@@ -210,9 +252,14 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         print('\n\n\nDoing get crease:')
         fold_from_vertex_location = data['fold_from_vertex']
         fold_to_vertex_location = data['location']
-
+        print('from:', fold_from_vertex_location)
+        print('to:', fold_to_vertex_location)
         ob = context.object
         bm = bmesh.from_edit_mesh(ob.data)
+        original_verts = []
+        for vert in bm.verts:
+            original_verts.append(vert)
+        print('original len', len(original_verts))
         max_coords = [float('-inf'), float('-inf'), float('-inf')]
         min_coords = [float('inf'), float('inf'), float('inf')]
         min_max_coords = [min_coords, max_coords]
@@ -275,6 +322,8 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                         intersection_points.append((line_point1 + l_vec * d))
                         print('adding intersection between line and plane')
             print('\n\n')
+
+        # remove duplicate intersection points
         to_remove = []
         for i1 in range(len(intersection_points) - 1):
             for i2 in range(i1 + 1, len(intersection_points)):
@@ -284,67 +333,67 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         for i in sorted(to_remove, reverse=True):
             # print(i)
             del intersection_points[i]
-        print(intersection_points)
-        obj = context.object
-        if bpy.context.mode == 'EDIT_MESH':
-            bm = bmesh.from_edit_mesh(obj.data)
-        else:
-            bm = bmesh.new()
-            bm.from_object(obj, context)
+        print('INTERSECTION POINTS ----', intersection_points)
+        # obj = context.object
+        # if bpy.context.mode == 'EDIT_MESH':
+        #     bm = bmesh.from_edit_mesh(obj.data)
+        # else:
+        #     bm = bmesh.new()
+        #     bm.from_object(obj, context)
 
-        new_verts = []
-        if len(intersection_points) == 2:
-            v1 = fold_from_vertex_location - intersection_points[0]
-            v2 = intersection_points[0] - intersection_points[1]
-            plane_normal = v1.cross(v2).normalized()
-            new_intersection_points = []
-            # for intersection_point in intersection_points:
-            new_intersection_points.append(intersection_points[0] + plane_normal*0.01)
-            new_intersection_points.append(intersection_points[1] + plane_normal*0.01)
-            new_intersection_points.append(intersection_points[1] - plane_normal*0.01)
-            new_intersection_points.append(intersection_points[0] - plane_normal*0.01)
-            intersection_points = new_intersection_points
+        # new_verts = []
+        # if len(intersection_points) == 2:
+        #     v1 = fold_from_vertex_location - intersection_points[0]
+        #     v2 = intersection_points[0] - intersection_points[1]
+        #     plane_normal = v1.cross(v2).normalized()
+        #     new_intersection_points = []
+        #     # for intersection_point in intersection_points:
+        #     new_intersection_points.append(intersection_points[0] + plane_normal*0.01)
+        #     new_intersection_points.append(intersection_points[1] + plane_normal*0.01)
+        #     new_intersection_points.append(intersection_points[1] - plane_normal*0.01)
+        #     new_intersection_points.append(intersection_points[0] - plane_normal*0.01)
+        #     intersection_points = new_intersection_points
 
-        for i in range(len(intersection_points)):
-            new_verts.append(bm.verts.new(intersection_points[i]))
-            if i > 0:
-                bm.edges.new([new_verts[i], new_verts[i - 1]])
+        # for i in range(len(intersection_points)):
+        #     new_verts.append(bm.verts.new(intersection_points[i]))
+        #     if i > 0:
+        #         bm.edges.new([new_verts[i], new_verts[i - 1]])
 
-        bm.edges.new([new_verts[0], new_verts[-1]])
+        # bm.edges.new([new_verts[0], new_verts[-1]])
 
-        bm.verts.ensure_lookup_table()
-        f1 = bm.faces.new(new_verts)
-        print(bm.verts)
+        # bm.verts.ensure_lookup_table()
+        # f1 = bm.faces.new(new_verts)
+        # print(bm.verts)
 
-        if bpy.context.mode == 'EDIT_MESH':
-            bmesh.update_edit_mesh(obj.data)
-        else:
-            bm.to_mesh(obj.data)
+        # if bpy.context.mode == 'EDIT_MESH':
+        #     bmesh.update_edit_mesh(obj.data)
+        # else:
+        #     bm.to_mesh(obj.data)
 
-        obj.data.update()
+        # obj.data.update()
 
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.intersect(mode='SELECT', separate_mode='NONE')
-        bm.verts.ensure_lookup_table()
-
-        print('verts', bm.verts)
-        counter = 0
-        to_delete = []
-        for vert in bm.verts:
-            print(counter, vert.co)
-            for intersection_point in intersection_points:
-                if (vert.co - intersection_point).length < same_vertex_distance and vert not in to_delete:
-                    # TODO don't delete vertices that were there beforehand
-                    print('to_delet.append', vert.co)
-                    to_delete.append(vert)
-            counter += 1
-        bmesh.ops.delete(bm, geom=to_delete)
-        print('planning to delete', to_delete)
         # bpy.ops.mesh.select_all(action='SELECT')
-        # bpy.ops.mesh.remove_doubles()
-        bm.verts.ensure_lookup_table()
+        # bpy.ops.mesh.intersect(mode='SELECT', separate_mode='NONE')
+        # bm.verts.ensure_lookup_table()
 
-        bpy.ops.object.mode_set(mode='OBJECT')
-        obj = bpy.context.active_object
-        bpy.ops.object.mode_set(mode='EDIT')
+        # print('verts', bm.verts)
+        # counter = 0
+        # to_delete = []
+        # for vert in bm.verts:
+        #     print(counter, vert.co)
+        #     for intersection_point in intersection_points:
+        #         if (vert.co - intersection_point).length < same_vertex_distance and vert not in to_delete:
+        #             # TODO don't delete vertices that were there beforehand
+        #             print('to_delet.append', vert.co)
+        #             to_delete.append(vert)
+        #     counter += 1
+        # bmesh.ops.delete(bm, geom=to_delete)
+        # print('planning to delete', to_delete)
+        # # bpy.ops.mesh.select_all(action='SELECT')
+        # # bpy.ops.mesh.remove_doubles()
+        # bm.verts.ensure_lookup_table()
+
+        # bpy.ops.object.mode_set(mode='OBJECT')
+        # obj = bpy.context.active_object
+        # bpy.ops.object.mode_set(mode='EDIT')
         return intersection_points
