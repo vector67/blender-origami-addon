@@ -92,9 +92,9 @@ for i in range(crease_marker_divisions*2-1):
     add_marker = not add_marker
 
 class OrigamiFoldPointGizmo(Gizmo):
-    bl_idname = "VIEW3D_GT_fold_origami_model"
+    bl_idname = 'VIEW3D_GT_fold_origami_model'
     bl_target_properties = (
-        {"id": "offset", "type": 'FLOAT', "array_length": 3},
+        {'id': 'offset', 'type': 'FLOAT', 'array_length': 3},
     )
 
     plane_co: FloatVectorProperty(
@@ -103,9 +103,9 @@ class OrigamiFoldPointGizmo(Gizmo):
     )
 
     __slots__ = (
-        "custom_shape",
-        "type",
-        "data"
+        'custom_shape',
+        'type',
+        'data'
     )
 
     def get_matrix_transform(self):
@@ -121,7 +121,7 @@ class OrigamiFoldPointGizmo(Gizmo):
         pass
 
     def setup(self):
-        if not hasattr(self, "custom_shape"):
+        if not hasattr(self, 'custom_shape'):
             self.custom_shape = self.new_custom_shape('TRIS', fold_point_icon_verts)
 
     def invoke(self, context, event):
@@ -133,26 +133,27 @@ class OrigamiFoldPointGizmo(Gizmo):
         context.area.header_text_set(None)
         print('exited')
         if cancel:
-            self.target_set_value("offset", self.init_value)
+            self.target_set_value('offset', self.init_value)
 
     def modal(self, context, event, tweak):
         return {'RUNNING_MODAL'}
 
     def update(self, mat_target):
         self.matrix_basis = mat_target
+        # pass
 
 
 class CreaseLineGizmo(Gizmo):
-    bl_idname = "VIEW3D_GT_crease_line_gizmo"
+    bl_idname = 'VIEW3D_GT_crease_line_gizmo'
     bl_target_properties = (
-        {"id": "start_pos", "type": 'FLOAT', "array_length": 3},
-        {"id": "end_pos", "type": 'FLOAT', "array_length": 3},    
+        {'id': 'start_pos', 'type': 'FLOAT', 'array_length': 3},
+        {'id': 'end_pos', 'type': 'FLOAT', 'array_length': 3},    
     )
 
     __slots__ = (
-        "custom_shape",
-        "type",
-        "data"
+        'custom_shape',
+        'type',
+        'data'
     )
 
     def get_matrix_transform(self):
@@ -179,12 +180,15 @@ class CreaseLineGizmo(Gizmo):
         te[1][0] = -x.y; te[1][1] = -y.y; te[1][2] = -z.y;
         te[2][0] = -x.z; te[2][1] = -y.z; te[2][2] = -z.z;
         te[3][3] = 1
-        return mathutils.Matrix.Translation(mathutils.Vector(eye)) @ mathutils.Matrix(te)
+        # return mathutils.Matrix.Translation(self.matrix_world.to_translation()) @ \
+        return mathutils.Matrix.Translation(mathutils.Vector(eye)) @ \
+            mathutils.Matrix.Translation(self.matrix_world.to_translation()) @ mathutils.Matrix(te)
+            
 
     def draw(self, context):
-        print('\n\n\n\nmatrix_basis', self.matrix_basis)
-        print(self.matrix_offset)
-        print(self.matrix_space)
+        # print('\n\n\n\nmatrix_basis', self.matrix_basis)
+        # print(self.matrix_offset)
+        # print(self.matrix_space)
         print(self.matrix_world)
         self.draw_custom_shape(self.custom_shape, matrix=self.get_matrix_transform())
 
@@ -195,12 +199,12 @@ class CreaseLineGizmo(Gizmo):
         print('hey called')
 
     def setup(self):
-        if not hasattr(self, "custom_shape"):
+        if not hasattr(self, 'custom_shape'):
             self.custom_shape = self.new_custom_shape('TRIS', crease_shape_verts)
 
     def invoke(self, context, event):
         self.init_mouse_y = event.mouse_y
-        self.init_value = self.target_get_value("start_pos")
+        self.init_value = self.target_get_value('start_pos')
         print('clicked')
         self.group.gizmo_clicked(context, self)
         return {'RUNNING_MODAL'}
@@ -209,7 +213,7 @@ class CreaseLineGizmo(Gizmo):
         context.area.header_text_set(None)
         print('exited')
         if cancel:
-            self.target_set_value("start_pos", self.init_value)
+            self.target_set_value('start_pos', self.init_value)
 
     def modal(self, context, event, tweak):
         # delta = (event.mouse_y - self.init_mouse_y) / 10.0
@@ -218,10 +222,10 @@ class CreaseLineGizmo(Gizmo):
         # if 'PRECISE' in tweak:
         #     delta /= 10.0
         # value = self.init_value - delta
-        # self.target_set_value("offset", value)
-        # context.area.header_text_set("My Gizmo: %.4f" % value)
+        # self.target_set_value('offset', value)
+        # context.area.header_text_set('My Gizmo: %.4f' % value)
         return {'RUNNING_MODAL'}
 
     def update(self, mat_target):
-        print(mat_target)
-        self.matrix_basis = mat_target
+        print('target', mat_target)
+        self.matrix_offset = mat_target

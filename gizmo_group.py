@@ -66,8 +66,8 @@ def calculate_fold_points(ob, selected):
 
 
 class FoldOrigamiModelGizmoGroup(GizmoGroup):
-    bl_idname = "OBJECT_GGT_light_test"
-    bl_label = "Test Light Widget"
+    bl_idname = 'OBJECT_GGT_light_test'
+    bl_label = 'Test Light Widget'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'WINDOW'
     bl_options = {'3D', 'SHOW_MODAL_ALL', 'PERSISTENT'}
@@ -100,7 +100,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         def move_set_cb(value):
             pass
 
-        mpr.target_set_handler("offset", get=move_get_cb, set=move_set_cb)
+        mpr.target_set_handler('offset', get=move_get_cb, set=move_set_cb)
 
         mpr.color = color
         mpr.alpha = fold_point_gizmo_alpha
@@ -111,7 +111,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         mpr.use_draw_modal = True
         if not hasattr(self, 'gizmo_list'):
             self.gizmo_list = []
-        mpr.type = "fold_point"
+        mpr.type = 'fold_point'
         mpr.data = location
         self.gizmo_list.append(mpr)
         return mpr
@@ -135,8 +135,8 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         def move_set_cb_end(value):
             pass
 
-        mpr.target_set_handler("start_pos", get=move_get_cb_start, set=move_set_cb_start)
-        mpr.target_set_handler("end_pos", get=move_get_cb_end, set=move_set_cb_end)
+        mpr.target_set_handler('start_pos', get=move_get_cb_start, set=move_set_cb_start)
+        mpr.target_set_handler('end_pos', get=move_get_cb_end, set=move_set_cb_end)
 
         mpr.color = fold_point_gizmo_color
         mpr.alpha = fold_point_gizmo_alpha
@@ -148,10 +148,11 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         # mpr.use_draw_scale = True
         # use_draw_offset_scale = True
         # mpr.use_select_background = True
+        # mpr.use_draw_modal = True
         mpr.use_event_handle_all = False
         if not hasattr(self, 'gizmo_list'):
             self.gizmo_list = []
-        mpr.type = "crease"
+        mpr.type = 'crease'
         mpr.data = [start_location, end_location]
         self.gizmo_list.append(mpr)
         return mpr
@@ -161,11 +162,11 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         #         start_vertex = vert
         #         break
         # if start_vertex == None:
-        #     raise "terrible error message"
+        #     raise 'terrible error message'
         # mpr = self.gizmos.new(CreaseLineGizmo.bl_idname)
 
     def setup(self, context):
-        self.ui_state = "NONE"
+        self.ui_state = 'NONE'
 
     def refresh(self, context):
         ob = context.object
@@ -173,12 +174,17 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         selected = [v for v in bm.verts if v.select]
         if len(selected) == 1:
             self.single_vertex_selected(ob, selected[0])
-        elif self.ui_state == "SHOW_FOLD_POINTS":
-            self.ui_state = "NONE"
+        elif self.ui_state == 'SHOW_FOLD_POINTS':
+            self.ui_state = 'NONE'
             self.hide_all_gizmos()
+        self.update_gizmos(context)
+
+    def update_gizmos(self, context):
+
         target = context.active_object
 
         mat_target = target.matrix_world.normalized()
+        print('refresh...')
         for mpr in self.gizmo_list:
             mpr.update(mat_target)
 
@@ -192,7 +198,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
             self.lock_state -= 1
             return
         print('single_vertex_selected')
-        self.ui_state = "SHOW_FOLD_POINTS"
+        self.ui_state = 'SHOW_FOLD_POINTS'
         fold_points = calculate_fold_points(ob, selected)
 
         location = selected.co
@@ -205,6 +211,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                                                         fold_point['data']['location'],
                                                         fold_point_gizmo_color,
                                                         fold_point_gizmo_color_highlight)
+            print('creating fold point', fold_point['data']['location'])
             mpr.type = fold_point['type']
             mpr.data = fold_point['data']
 
@@ -214,60 +221,63 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         bm = bmesh.from_edit_mesh(ob.data)
         selected = [v.select for v in bm.verts]
         # gizmo_location = gizmo.target_get_value('offset')
-        if self.ui_state == "SHOW_FOLD_POINTS":
+        if self.ui_state == 'SHOW_FOLD_POINTS':
             for other_gizmo in self.gizmo_list:
                 if not other_gizmo == gizmo:
                     other_gizmo.hide = True
                 else:
                     other_gizmo.color = fold_point_create_fold_color
                     other_gizmo.color_highlight = fold_point_create_fold_color_highlight
+                    print('going green at', other_gizmo.target_get_value('offset'))
 
             cancel_gizmo = self.create_or_reuse_fold_point_gizmo(
                                                                  np.array(ob.data.vertices)[selected][0].co,
                                                                  fold_point_cancel_fold_color,
                                                                  fold_point_cancel_fold_color_highlight)
+            print('cancel at', np.array(ob.data.vertices)[selected][0].co)
             cancel_gizmo.type = 'cancel'
             cancel_gizmo.data = {'vertex': np.array(ob.data.vertices)[selected][0]}
-            print('assigning', cancel_gizmo.data)
+            # print('assigning', cancel_gizmo.data)
             # self.target_get_value('offset')
             crease = self.get_crease(context, gizmo.type, gizmo.data)
-            print(crease)
+            # print(crease)
             print('creating potential crease from:', crease[0], 'to', crease[1])
             self.create_crease_gizmo(bm, crease[0], crease[1])
-            self.ui_state = "SHOW_POTENTIAL_CREASE"
+            self.ui_state = 'SHOW_POTENTIAL_CREASE'
+            self.update_gizmos(context)
             # self.lock_state = 1
-        elif self.ui_state == "SHOW_POTENTIAL_CREASE":
+        elif self.ui_state == 'SHOW_POTENTIAL_CREASE':
             print('clicked in show_potential_crease state')
-            if gizmo.type == "cancel":
+            if gizmo.type == 'cancel':
                 self.single_vertex_selected(ob, gizmo.data['vertex'])
                 print('canceled potential crease state')
-            else:
+            elif gizmo_type == 'crease':
                 # TODO: do fold based on the crease created
                 print('gizmo data', gizmo.data)
                 print('gizmo type', gizmo.type)
                 # print('do fold from', mathutils.Vector(gizmo.data), \
-                # 'to', mathutils.Vector(gizmo.target_get_value("offset")))
+                # 'to', mathutils.Vector(gizmo.target_get_value('offset')))
 
     def get_crease(self, context, start_point_type, data):
-        print('\n\n\nDoing get crease:')
+        # print('\n\n\nDoing get crease:')
         fold_from_vertex_location = data['fold_from_vertex']
         fold_to_vertex_location = data['location']
-        print('from:', fold_from_vertex_location)
-        print('to:', fold_to_vertex_location)
+        # print('from:', fold_from_vertex_location)
+        # print('to:', fold_to_vertex_location)
         ob = context.object
         bm = bmesh.from_edit_mesh(ob.data)
         original_verts = []
         for vert in bm.verts:
             original_verts.append(vert)
-        print('original len', len(original_verts))
+        # print('original len', len(original_verts))
         max_coords = [float('-inf'), float('-inf'), float('-inf')]
         min_coords = [float('inf'), float('inf'), float('inf')]
         min_max_coords = [min_coords, max_coords]
         for vert in bm.verts:
             for i in range(3):
-                print('vert', vert.co)
-                print('max_coords', max_coords)
-                print('min_coords', min_coords)
+                # print('vert', vert.co)
+                # print('max_coords', max_coords)
+                # print('min_coords', min_coords)
                 if vert.co[i] > max_coords[i]:
                     max_coords[i] = vert.co[i]
                 if vert.co[i] < min_coords[i]:
@@ -305,23 +315,23 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                         continue
                     else:
                         d = numerator / denominator
-                        print('d', d)
-                        print('line from point (', x1, ',', y1, ',', z1, ') to (', x2, ',', y2, ',', z2, ')')
-                        print('plane ', midpoint, n)
-                        print('intersection at', (line_point1 + l_vec * d))
+                        # print('d', d)
+                        # print('line from point (', x1, ',', y1, ',', z1, ') to (', x2, ',', y2, ',', z2, ')')
+                        # print('plane ', midpoint, n)
+                        # print('intersection at', (line_point1 + l_vec * d))
                         if d > 0 and d <= 1 + same_vertex_distance:
                             intersection_points.append((line_point2 + l_vec * d))
-                            print('adding intersection between line and plane')
+                            # print('adding intersection between line and plane')
                 else:
                     d = numerator / denominator
-                    print('d', d)
-                    print('line from point (', x1, ',', y1, ',', z1, ') to (', x2, ',', y2, ',', z2, ')')
-                    print('plane ', midpoint, n)
-                    print('intersection at', (line_point1 + l_vec * d))
+                    # print('d', d)
+                    # print('line from point (', x1, ',', y1, ',', z1, ') to (', x2, ',', y2, ',', z2, ')')
+                    # print('plane ', midpoint, n)
+                    # print('intersection at', (line_point1 + l_vec * d))
                     if d < 0 and d >= -1 - same_vertex_distance:
                         intersection_points.append((line_point1 + l_vec * d))
-                        print('adding intersection between line and plane')
-            print('\n\n')
+                        # print('adding intersection between line and plane')
+            # print('\n\n')
 
         # remove duplicate intersection points
         to_remove = []
@@ -333,7 +343,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         for i in sorted(to_remove, reverse=True):
             # print(i)
             del intersection_points[i]
-        print('INTERSECTION POINTS ----', intersection_points)
+        # print('INTERSECTION POINTS ----', intersection_points)
         # obj = context.object
         # if bpy.context.mode == 'EDIT_MESH':
         #     bm = bmesh.from_edit_mesh(obj.data)
