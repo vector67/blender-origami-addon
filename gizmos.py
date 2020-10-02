@@ -180,16 +180,11 @@ class CreaseLineGizmo(Gizmo):
         te[1][0] = -x.y; te[1][1] = -y.y; te[1][2] = -z.y;
         te[2][0] = -x.z; te[2][1] = -y.z; te[2][2] = -z.z;
         te[3][3] = 1
-        # return mathutils.Matrix.Translation(self.matrix_world.to_translation()) @ \
         return mathutils.Matrix.Translation(mathutils.Vector(eye)) @ \
             mathutils.Matrix.Translation(self.matrix_world.to_translation()) @ mathutils.Matrix(te)
             
 
     def draw(self, context):
-        # print('\n\n\n\nmatrix_basis', self.matrix_basis)
-        # print(self.matrix_offset)
-        # print(self.matrix_space)
-        print(self.matrix_world)
         self.draw_custom_shape(self.custom_shape, matrix=self.get_matrix_transform())
 
     def draw_select(self, context, select_id):
@@ -203,15 +198,12 @@ class CreaseLineGizmo(Gizmo):
             self.custom_shape = self.new_custom_shape('TRIS', crease_shape_verts)
 
     def invoke(self, context, event):
-        self.init_mouse_y = event.mouse_y
-        self.init_value = self.target_get_value('start_pos')
         print('clicked')
         self.group.gizmo_clicked(context, self)
         return {'RUNNING_MODAL'}
 
     def exit(self, context, cancel):
         context.area.header_text_set(None)
-        print('exited')
         if cancel:
             self.target_set_value('start_pos', self.init_value)
 
@@ -227,5 +219,4 @@ class CreaseLineGizmo(Gizmo):
         return {'RUNNING_MODAL'}
 
     def update(self, mat_target):
-        print('target', mat_target)
         self.matrix_offset = mat_target
