@@ -324,7 +324,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         obj.data.update()
 
         bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.intersect(mode='SELECT', separate_mode='ALL')
+        bpy.ops.mesh.intersect(mode='SELECT', separate_mode='NONE')
         bm.verts.ensure_lookup_table()
 
         print('verts', bm.verts)
@@ -334,9 +334,17 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
             print(counter, vert.co)
             for intersection_point in intersection_points:
                 if (vert.co - intersection_point).length < same_vertex_distance and vert not in to_delete:
+                    # TODO don't delete vertices that were there beforehand
+                    print('to_delet.append', vert.co)
                     to_delete.append(vert)
             counter += 1
-        bmesh.ops.delete(bm, geom=to_delete, context='VERTS')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.remove_doubles()
+        bmesh.ops.delete(bm, geom=to_delete)
+        print('planning to delete', to_delete)
+        # bpy.ops.mesh.select_all(action='SELECT')
+        # bpy.ops.mesh.remove_doubles()
+        bm.verts.ensure_lookup_table()
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+        obj = bpy.context.active_object
+        bpy.ops.object.mode_set(mode='EDIT')
         return intersection_points
