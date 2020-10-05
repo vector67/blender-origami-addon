@@ -140,7 +140,6 @@ class OrigamiFoldPointGizmo(Gizmo):
 
     def update(self, mat_target):
         self.matrix_basis = mat_target
-        # pass
 
 
 class CreaseLineGizmo(Gizmo):
@@ -162,8 +161,6 @@ class CreaseLineGizmo(Gizmo):
         difference_vector = mathutils.Vector(eye) - mathutils.Vector(target)
         z = difference_vector
         up = mathutils.Vector((0,0,1))
-        # te = this.elements; //this.elements is a 4 x 4 matrix stored in a list.
-
 
         if z.length == 0:
             z.z = 1;
@@ -181,7 +178,8 @@ class CreaseLineGizmo(Gizmo):
         te[2][0] = -x.z; te[2][1] = -y.z; te[2][2] = -z.z;
         te[3][3] = 1
         return mathutils.Matrix.Translation(mathutils.Vector(eye)) @ \
-            mathutils.Matrix.Translation(self.matrix_world.to_translation()) @ mathutils.Matrix(te)
+            mathutils.Matrix.Translation(self.matrix_world.to_translation()) @ \
+            mathutils.Matrix(te)
             
 
     def draw(self, context):
@@ -208,14 +206,6 @@ class CreaseLineGizmo(Gizmo):
             self.target_set_value('start_pos', self.init_value)
 
     def modal(self, context, event, tweak):
-        # delta = (event.mouse_y - self.init_mouse_y) / 10.0
-        # if 'SNAP' in tweak:
-        #     delta = round(delta)
-        # if 'PRECISE' in tweak:
-        #     delta /= 10.0
-        # value = self.init_value - delta
-        # self.target_set_value('offset', value)
-        # context.area.header_text_set('My Gizmo: %.4f' % value)
         return {'RUNNING_MODAL'}
 
     def update(self, mat_target):

@@ -6,6 +6,7 @@ from bpy.types import (
 import numpy as np
 import mathutils
 import bpy
+import math
 
 fold_point_gizmo_color = (0.9, 0.5, 0.5)
 fold_point_gizmo_color_highlight = (1, 0.8, 0.8)
@@ -221,29 +222,31 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         bm = bmesh.from_edit_mesh(ob.data)
         selected = [v.select for v in bm.verts]
         if self.ui_state == 'SHOW_FOLD_POINTS':
+            # Hide all other gizmos
             for other_gizmo in self.gizmo_list:
                 if not other_gizmo == gizmo:
                     other_gizmo.hide = True
-                else:
-                    other_gizmo.color = fold_point_create_fold_color
-                    other_gizmo.color_highlight = fold_point_create_fold_color_highlight
-                    # print('going green at', other_gizmo.target_get_value('offset'))
 
+            # Create the cancel gizmo
             cancel_gizmo = self.create_or_reuse_fold_point_gizmo(
                                                                  np.array(ob.data.vertices)[selected][0].co,
                                                                  fold_point_cancel_fold_color,
                                                                  fold_point_cancel_fold_color_highlight)
-            # print('cancel at', np.array(ob.data.vertices)[selected][0].co)
             cancel_gizmo.type = 'cancel'
             cancel_gizmo.data = {'vertex': np.array(ob.data.vertices)[selected][0]}
-            # print('assigning', cancel_gizmo.data)
-            # self.target_get_value('offset')
+
+            # Create the crease
             crease_data = self.get_crease(context, gizmo.type, gizmo.data)
-            # print(crease)
-            # print('creating potential crease from:', crease[0], 'to', crease[1])
             crease_points = crease_data['crease_points']
             crease_gizmo = self.create_crease_gizmo(bm, crease_points[0], crease_points[1])
             crease_gizmo.data = crease_data
+
+            # Update the clicked gizmo to be green and the rest to be hidden
+            gizmo.color = fold_point_create_fold_color
+            gizmo.color_highlight = fold_point_create_fold_color_highlight
+            gizmo.type = 'confirm'
+            gizmo.data = crease_data
+
             self.ui_state = 'SHOW_POTENTIAL_CREASE'
             self.update_gizmos(context)
             # self.lock_state = 1
@@ -260,6 +263,10 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                 self.create_crease(context, gizmo.data)
                 self.ui_state = 'NONE'
                 self.hide_all_gizmos()
+            elif gizmo.type == 'confirm':
+                print('time to crease with', gizmo.data)
+                self.create_crease(context, gizmo.data)                
+                self.fold_model(context, gizmo.data)
                 # print('do fold from', mathutils.Vector(gizmo.data), \
                 # 'to', mathutils.Vector(gizmo.target_get_value('offset')))
 
@@ -412,11 +419,65 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
             counter += 1
         bmesh.ops.delete(bm, geom=to_delete)
         print('planning to delete', to_delete)
-        # bpy.ops.mesh.select_all(action='SELECT')
-        # bpy.ops.mesh.remove_doubles()
         bm.verts.ensure_lookup_table()
 
         bpy.ops.object.mode_set(mode='OBJECT')
         obj = bpy.context.active_object
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='DESELECT')
+
+    def fold_model(self, context, crease_data):
+        crease_points = crease_data['crease_points']
+        fold_from_vertex_location = crease_data['folding_points'][0]
+        v1 = fold_from_vertex_location - crease_points[0]
+        v2 = crease_points[0] - crease_points[1]
+
+
+        # split the vertices of the model into those on one side of the plane and those on the other
+        crease_unit_vector = (crease_points[1] - crease_points[0]).normalized()
+        X = crease_points[0] + ((fold_from_vertex_location-crease_points[0]).dot(crease_unit_vector))*crease_unit_vector
+        plane_normal = fold_from_vertex_location - X
+        H1 = []
+        H2 = []
+        obj = context.object
+        bm = bmesh.from_edit_mesh(obj.data)
+        for vert in bm.verts:
+            if plane_normal.dot(vert.co - X) > 0:
+                H1.append(vert)
+            else:
+                H2.append(vert)
+        print('h1', H1)
+        print('h2', H2)
+        a, b, c = crease_unit_vector.to_tuple()
+        print('crease unit', crease_unit_vector)
+        d = math.sqrt(b**2 + c**2)
+        T1 = mathutils.Matrix.Translation(-crease_points[0])
+        T1_inv = T1.inverted()
+
+        if d == 0:
+            Rx_rows = [[1, 0,0,0], [0, 1, 0, 0], [0, 0, 1, 0], [0,0,0,1]] 
+        else:
+            Rx_rows = [[1, 0,0,0], [0, c/d, -b/d, 0], [0, b/d, c/d, 0], [0,0,0,1]] 
+        Rx = mathutils.Matrix(Rx_rows)
+        Rx_inv = Rx.inverted()
+
+        Ry_rows = [[d, 0,-a,0], [0, 1, 0, 0], [a, 0, d, 0], [0,0,0,1]] 
+        Ry = mathutils.Matrix(Ry_rows)
+        Ry_inv = Ry.inverted()
+
+        theta = math.pi - 0.06
+        Rz_rows = [
+            [math.cos(theta), -math.sin(theta), 0, 0],
+            [math.sin(theta), math.cos(theta), 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ]
+        Rz = mathutils.Matrix(Rz_rows)
+        transform = T1_inv @ Rx_inv @ Ry_inv @ Rz @ Ry @ Rx @ T1
+        
+        for vert in H1:
+            vert.co = transform @ vert.co
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+        obj = bpy.context.active_object
+        bpy.ops.object.mode_set(mode='EDIT')
