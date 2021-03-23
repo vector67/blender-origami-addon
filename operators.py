@@ -13,13 +13,13 @@ def new_origami_page(self, context):
 
     layout.separator()
     layout.operator("mesh.origami_model",
-                    text="Origami", icon="SPHERE")  # TODO fix icon to something that makes more sense with origami
+                    text="Origami", icon="MESH_PLANE")  # TODO fix icon to something that makes more sense with origami
 
 
 class AddOrigamiModel(Operator, object_utils.AddObjectHelper):
     """Object Cursor Array"""
     bl_idname = "mesh.origami_model"
-    bl_description = "Construct a step origami model"
+    bl_description = "Construct an origami model"
     bl_label = "Add Origami Model"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 

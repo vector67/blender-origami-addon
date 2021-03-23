@@ -267,6 +267,8 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
                 print('time to crease with', gizmo.data)
                 self.create_crease(context, gizmo.data)                
                 self.fold_model(context, gizmo.data)
+                self.ui_state = 'NONE'
+                self.hide_all_gizmos()
                 # print('do fold from', mathutils.Vector(gizmo.data), \
                 # 'to', mathutils.Vector(gizmo.target_get_value('offset')))
 
@@ -361,6 +363,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         }
 
     def create_crease(self, context, crease_data):
+        rectangle_stick_out_length = 1
         intersection_points = crease_data['crease_points']
         fold_from_vertex_location = crease_data['folding_points'][0]
         print('INTERSECTION POINTS ----', intersection_points)
@@ -378,10 +381,10 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
             plane_normal = v1.cross(v2).normalized()
             new_intersection_points = []
             # for intersection_point in intersection_points:
-            new_intersection_points.append(intersection_points[0] + plane_normal*0.01)
-            new_intersection_points.append(intersection_points[1] + plane_normal*0.01)
-            new_intersection_points.append(intersection_points[1] - plane_normal*0.01)
-            new_intersection_points.append(intersection_points[0] - plane_normal*0.01)
+            new_intersection_points.append(intersection_points[0] + plane_normal*rectangle_stick_out_length)
+            new_intersection_points.append(intersection_points[1] + plane_normal*rectangle_stick_out_length)
+            new_intersection_points.append(intersection_points[1] - plane_normal*rectangle_stick_out_length)
+            new_intersection_points.append(intersection_points[0] - plane_normal*rectangle_stick_out_length)
             intersection_points = new_intersection_points
 
         for i in range(len(intersection_points)):
@@ -465,7 +468,7 @@ class FoldOrigamiModelGizmoGroup(GizmoGroup):
         Ry = mathutils.Matrix(Ry_rows)
         Ry_inv = Ry.inverted()
 
-        theta = math.pi - 0.06
+        theta = math.pi - 1.05
         Rz_rows = [
             [math.cos(theta), -math.sin(theta), 0, 0],
             [math.sin(theta), math.cos(theta), 0, 0],
